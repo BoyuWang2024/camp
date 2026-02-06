@@ -88,7 +88,7 @@ class AtomicMoment(nn.Module):
             max_chebyshev_degree=max_chebyshev_degree,
             r_cut=r_cut,
             envelope=envelope,
-        )
+        )# 径向部分
 
         atomic_moment_rules = {
             rank: get_atomic_moment_rules(max_in_rank=max_v2, out_rank=rank)
@@ -103,7 +103,7 @@ class AtomicMoment(nn.Module):
         self.atomic_moment_einsum_rule: dict[int, list[str]] = {
             rank: [rule["einsum_rule"] for rule in rules if rule["ranks"][0] <= max_v1]
             for rank, rules in atomic_moment_rules.items()
-        }
+        }# 构建规则
 
         # MLP on the radial part. This is separate for each combination of v, v1, and v2
 
@@ -112,7 +112,7 @@ class AtomicMoment(nn.Module):
                 max_u + 1 for _ in range(radial_mlp_hidden_layers)
             ]
 
-        self.radial_mlp = nn.ModuleDict()
+        self.radial_mlp = nn.ModuleDict()# 径向部分的多层感知机， separate for each (v, v1, v2)
         for v, rules in self.atomic_moment_ranks.items():
             for rule in rules:
                 v1 = rule[0]

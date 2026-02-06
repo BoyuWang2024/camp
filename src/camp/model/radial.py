@@ -1,6 +1,5 @@
 """Radial basis functions."""
-
-
+# 本模块实现了径向基函数，主要用于分子模拟中的机器学习势能函数（如MTP）。它包括径向部分的神经网络模块、切比雪夫多项式的计算以及两种包络函数。通过这些函数，可以将原子间距离和类型映射到高维特征空间，从而捕捉复杂的相互作用关系，提高模型的表达能力和预测精度。（对应论文第一部分，从原子中提取特征）
 from typing import Optional
 
 import torch
@@ -16,13 +15,13 @@ class RadialPart(nn.Module):
     Eq. 3 of Shapeev.
     """
 
-    def __init__(
+    def __init__(# 初始化
         self,
-        n_u: int,
-        n_z: int,
-        max_chebyshev_degree: int = 9,
-        r_cut: float = 5,
-        envelope: Optional[int] = None,
+        n_u: int,# 径向基函数的数量(通道数：类比卷积神经网络中的卷积核数量。 每个基函数可以看作是一个卷积核，用于提取输入数据中的特定特征，多个通道可以捕捉到更多样化的特征，从而提升模型的表达能力和性能。)
+        n_z: int,# 原子类型的数量(不同种类的原子数目)（为不同类型原子对分别训练一套系数，提高模型准确性）
+        max_chebyshev_degree: int = 9,# 切比雪夫多项式的最高次数(基函数中切比雪夫多项式的最高次数，决定了基函数的复杂度和表达能力，更高的次数可以捕捉到更复杂的距离依赖关系，但也可能增加计算复杂度和过拟合风险)
+        r_cut: float = 5,# 截断距离(在分子模拟中，r_cut表示原子间相互作用的截断距离，超过该距离的相互作用被忽略，以提高计算效率。选择合适的r_cut值对于准确描述系统的物理性质至关重要)
+        envelope: Optional[int] = None,# 包络函数(包络函数用于调整径向基函数在截断距离处的行为，使其平滑地过渡到零，从而避免由于截断引入的不连续性和数值不稳定性。如果envelope为None，则使用MTP中的二次多项式包络函数；否则，envelope是一个正整数p，表示使用Dimenet中的包络函数，该函数的形式取决于p的值)
     ):
         """
         Args:
@@ -47,7 +46,7 @@ class RadialPart(nn.Module):
         self.c = nn.Parameter(torch.empty(n_z, n_z, n_u, max_chebyshev_degree + 1))
         self.reset_parameters()
 
-    def reset_parameters(self):
+    def reset_parameters(self):# 将权重初始化为均匀分布（初始化函数）
         """Initialize the weights to:
 
             uniform(-1/sqrt(in_features), 1/sqrt(in_features)).
@@ -60,7 +59,7 @@ class RadialPart(nn.Module):
         k = 1 / (self.max_chebyshev_degree + 1) ** 0.5
         nn.init.uniform_(self.c, -k, k)
 
-    def forward(self, r: Tensor, zi: Tensor, zj: Tensor):
+    def forward(self, r: Tensor, zi: Tensor, zj: Tensor):# 径向部分的前向传播(将径向距离（乘以包络函数的切尔雪夫多项式）和原子类型映射到径向特征（通过乘以可学习的系数）)
         """
         Args:
             r: 1D tensor of distances between atoms i and j.
@@ -91,7 +90,7 @@ class RadialPart(nn.Module):
         return out
 
 
-def radial_basis(
+def radial_basis(# 径向基函数，使用切比雪夫多项式（切尔雪夫多项式乘包络函数）
     degree: int,
     r: Tensor,
     r_min: float = 0,
@@ -141,7 +140,7 @@ def radial_basis(
     return out
 
 
-def chebyshev_first(n: int, x: Tensor) -> Tensor:
+def chebyshev_first(n: int, x: Tensor) -> Tensor:# 这是切比雪夫多项式（用于拟合径向特征的基函数的多项式）
     """Chebyshev polynomials of the first kind.
 
     Args:
@@ -160,13 +159,13 @@ def chebyshev_first(n: int, x: Tensor) -> Tensor:
 
     return T
 
-
-def mtp_envelope(r: Tensor):
+# 两种包络函数
+def mtp_envelope(r: Tensor):# 这是两种包络函数之一：MTP 包络
     """The envelope function used in the MTP."""
     return (1 - r) ** 2
 
 
-def dimenet_envelope(r: Tensor, p: int = 6):
+def dimenet_envelope(r: Tensor, p: int = 6):# 这是两种包络函数之一：DimNet 包络
     """The envelope function used in DimNet.
 
     1 - (p+1)(p+2)/2*x**p + p*(p+2)*x**(p+1) - p*(p+1)/2*x**(p+2)
